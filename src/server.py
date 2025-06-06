@@ -50,15 +50,15 @@ class SQLiteMCPServer:
         self.logger.info(f"MCP Request: {method} (ID: {request_id})")
         
         try:
+            # Auto-initialize for AI agents if not already initialized
+            if method != "initialize" and not self.initialized:
+                await self.initialize({"protocolVersion": "2025-03-26", "clientInfo": {"name": "ai-agent"}})
+            
             if method == "initialize":
                 result = await self.initialize(params)
             elif method == "tools/list":
-                if not self.initialized:
-                    raise MCPError(-32002, "Server not initialized")
                 result = await self.list_tools(params)
             elif method == "tools/call":
-                if not self.initialized:
-                    raise MCPError(-32002, "Server not initialized")
                 result = await self.call_tool(params)
             else:
                 raise MCPError(-32601, f"Method not found: {method}")

@@ -80,9 +80,17 @@ class DatabaseManager:
     def validate_sql_query(self, sql: str) -> bool:
         """Basic SQL injection protection"""
         sql_upper = sql.strip().upper()
-        dangerous_keywords = ['DROP', 'DELETE', 'TRUNCATE', 'ALTER', 'CREATE', 'INSERT', 'UPDATE']
         
-        # Only allow SELECT statements for basic queries (unless explicitly allowing modifications)
-        if not sql_upper.startswith('SELECT') and any(keyword in sql_upper for keyword in dangerous_keywords):
+        # Block truly dangerous operations
+        dangerous_keywords = ['DROP DATABASE', 'DROP SCHEMA', 'TRUNCATE', 'PRAGMA']
+        
+        # Allow common DML operations (SELECT, INSERT, UPDATE, DELETE, CREATE TABLE, ALTER TABLE)
+        for keyword in dangerous_keywords:
+            if keyword in sql_upper:
+                return False
+        
+        # Basic checks for obvious SQL injection patterns
+        if any(pattern in sql_upper for pattern in [';--', '/*', '*/', 'UNION SELECT', 'EXEC(', 'EXECUTE(']):
             return False
+            
         return True
