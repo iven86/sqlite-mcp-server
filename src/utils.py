@@ -3,15 +3,31 @@ Configuration and utility functions for SQLite MCP Server
 """
 import logging
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
 
 
 def setup_logging(level: str):
     """Setup production logging"""
-    # Create logs directory if it doesn't exist
-    log_dir = Path("logs")
-    log_dir.mkdir(exist_ok=True)
+    # Use environment variable for log directory, fallback to local logs
+    log_dir_path = os.environ.get('MCP_LOG_DIR', 'logs')
+    log_dir = Path(log_dir_path)
+    
+    # Create logs directory if it doesn't exist and we have permission
+    try:
+        log_dir.mkdir(exist_ok=True)
+    except (OSError, PermissionError):
+        # If we can't create the directory, fall back to system temp or current dir
+        if log_dir_path != 'logs':
+            print(f"Warning: Cannot create log directory {log_dir_path}, falling back to local logs")
+            log_dir = Path("logs")
+            try:
+                log_dir.mkdir(exist_ok=True)
+            except (OSError, PermissionError):
+                # Last resort: use system temp directory
+                log_dir = Path("/tmp/sqlite-mcp-server")
+                log_dir.mkdir(exist_ok=True)
     
     # Configure logging with both file and console handlers
     logging.basicConfig(
