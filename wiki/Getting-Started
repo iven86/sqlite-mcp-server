@@ -1,0 +1,130 @@
+# Getting Started
+
+This guide will help you install and run SQLite MCP Server.
+
+## Prerequisites
+
+- **Python:** 3.8 or higher (Tested on Python 3.12.3)
+- **Operating System:** Linux, macOS, Windows
+- **Dependencies:** Only Python standard library (no external packages required)
+
+## Installation
+
+### Download and Setup
+
+1. Download the project files to your desired location
+2. Open terminal in the project folder
+3. Make scripts executable (Linux/macOS):
+   ```bash
+   chmod +x scripts/start_server.sh scripts/deploy.sh
+   ```
+
+### Start the Server
+
+```bash
+# Basic start (default settings)
+python3 main.py
+
+# Or use the start script
+./scripts/start_server.sh
+```
+
+### Verify Installation
+
+1. **Check server status:**
+   ```bash
+   curl http://localhost:9999/health
+   ```
+
+2. **Expected response:**
+   ```json
+   {
+     "success": true,
+     "status": "healthy",
+     "timestamp": "2025-06-06T...",
+     "current_database": null,
+     "initialized": true
+   }
+   ```
+
+3. **View the status page:**
+   Open http://localhost:9999 in your browser
+
+## Basic Commands
+
+```bash
+# Show version
+python3 main.py --version
+
+# Show help
+python3 main.py --help
+
+# Start with custom port
+python3 main.py --port 8080
+
+# Start with debug logging
+python3 main.py --log-level DEBUG
+
+# Start on all interfaces
+python3 main.py --host 0.0.0.0
+```
+
+## Next Steps
+
+- [Configuration Guide](Configuration) - Learn about all configuration options
+- [API Reference](API-Reference) - Explore available tools and endpoints
+- [Examples](Examples) - See usage examples
+- [Production Deployment](Production-Deployment) - Deploy for production use
+
+## Quick Test
+
+Try this basic test to ensure everything works:
+
+```bash
+# In one terminal, start the server
+python3 main.py
+
+# In another terminal, test the health endpoint
+curl http://localhost:9999/health
+
+# Initialize MCP connection
+curl -X POST http://localhost:9999/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2025-03-26",
+      "clientInfo": {
+        "name": "test-client",
+        "version": "1.0.0"
+      }
+    },
+    "id": "1"
+  }'
+
+# Test connecting to a database
+curl -X POST http://localhost:9999/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/call",
+    "params": {
+      "name": "connect_database",
+      "arguments": {
+        "db_path": "./example.db"
+      }
+    },
+    "id": "2"
+  }'
+```
+
+## Troubleshooting
+
+**Common issues during first run:**
+
+- **Port already in use:** Use `--port 8080` to use a different port
+- **Permission denied:** Make sure scripts are executable with `chmod +x scripts/start_server.sh`
+- **Python not found:** Make sure Python 3.8+ is installed and available as `python3`
+
+For more detailed troubleshooting, see the [Troubleshooting Guide](Troubleshooting).

@@ -1,0 +1,19 @@
+# SQLite MCP HTTP Server Requirements
+# All modules are part of Python standard library - no external dependencies needed!
+
+# Core modules (included with Python):
+# - sqlite3 (database connectivity)
+# - http.server (HTTP server)
+# - json (JSON handling)
+# - asyncio (async support)
+# - logging (logging)
+# - argparse (command line parsing)
+# - pathlib (file path handling)
+
+# Optional development tools (uncomment if needed):
+# pytest>=7.0.0
+# black>=22.0.0
+# mypy>=1.0.0
+
+# Only needed for test_client.py (optional):
+# requests>=2.25.0

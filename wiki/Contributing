@@ -1,0 +1,531 @@
+# Contributing
+
+This guide will help you get started with development, testing, and submitting contributions.
+
+## Getting Started
+
+### Development Environment Setup
+
+1. **Set up the project:**
+
+```bash
+# Navigate to the project directory
+cd sqlite-mcp-server
+
+# Ensure Python 3.8+ is installed
+python3 --version
+
+# No external dependencies needed - uses only Python standard library
+# Make scripts executable
+chmod +x scripts/start_server.sh scripts/deploy.sh
+
+# Test the setup
+python3 main.py --version
+```
+
+2. **Verify everything works:**
+
+```bash
+# Start the server in debug mode
+python3 main.py --log-level DEBUG
+
+# In another terminal, test basic functionality
+curl http://localhost:9999/health
+```
+
+## Project Structure
+
+Understanding the modular architecture:
+
+```
+sqlite_mcp_server/
+├── LICENSE              # CC BY-NC-SA 4.0 license file
+├── main.py              # Entry point - CLI parsing and server startup
+├── README.md            # Project overview
+├── requirements.txt     # Python dependencies (empty - stdlib only)
+├── src/                 # Core MCP modules
+│   ├── __init__.py      # Package initialization
+│   ├── server.py        # Core MCP server implementation
+│   ├── tools.py         # MCP tool definitions and handlers
+│   ├── http_handler.py  # HTTP request/response handling
+│   ├── database.py      # Database operations and utilities
+│   ├── models.py        # Data models and error classes
+│   └── utils.py         # Common utility functions
+├── scripts/
+│   ├── start_server.sh  # Server startup script
+│   └── deploy.sh        # System deployment script
+├── logs/               # Server logs directory
+└── wiki/               # Documentation
+    ├── API-Reference
+    ├── Configuration
+    ├── Contributing     # This file
+    ├── Examples
+    ├── Getting-Started
+    ├── Production-Deployment
+    └── Troubleshooting
+```
+
+## Development Workflow
+
+### Creating a Feature Branch
+
+```bash
+# Sync with upstream
+git fetch upstream
+git checkout main
+git merge upstream/main
+
+# Create feature branch
+git checkout -b feature/your-feature-name
+
+# Or for bug fixes
+git checkout -b fix/issue-description
+```
+
+### Making Changes
+
+1. **Code Style Guidelines:**
+   - Follow PEP 8 Python style guide
+   - Use meaningful variable and function names
+   - Add docstrings to functions and classes
+   - Keep functions focused and small
+   - Use type hints where appropriate
+
+2. **Example code style:**
+
+```python
+def execute_database_query(query: str, database_path: str, timeout: int = 60) -> dict:
+    """
+    Execute a SQL query against the specified database.
+    
+    Args:
+        query: SQL query string to execute
+        database_path: Path to the SQLite database file
+        timeout: Query execution timeout in seconds
+        
+    Returns:
+        Dictionary containing query results and metadata
+        
+    Raises:
+        DatabaseError: If query execution fails
+        TimeoutError: If query exceeds timeout
+    """
+    # Implementation here
+    pass
+```
+
+### Testing Your Changes
+
+1. **Manual Testing:**
+
+```bash
+# Start server with debug logging
+python3 main.py --log-level DEBUG
+
+# Test basic functionality
+curl http://localhost:9999/health
+
+# Test MCP tools
+curl -X POST http://localhost:9999/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/list",
+    "id": "1"
+  }'
+```
+
+2. **Create test databases for development:**
+
+```bash
+# Create a test database
+sqlite3 test.db << EOF
+CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT);
+INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com');
+INSERT INTO users (name, email) VALUES ('Bob', 'bob@example.com');
+CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT, price REAL);
+INSERT INTO products (name, price) VALUES ('Widget A', 19.99);
+INSERT INTO products (name, price) VALUES ('Widget B', 29.99);
+EOF
+
+# Test with your database - Complete MCP workflow
+# 1. First initialize the MCP server
+curl -X POST http://localhost:9999/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2025-03-26",
+      "clientInfo": {"name": "test-client", "version": "1.0.0"}
+    },
+    "id": "init"
+  }'
+
+# 2. Connect to your database
+curl -X POST http://localhost:9999/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/call",
+    "params": {
+      "name": "connect_database",
+      "arguments": {"db_path": "./test.db"}
+    },
+    "id": "1"
+  }'
+
+# 3. Then get the list of tables
+curl -X POST http://localhost:9999/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/call",
+    "params": {
+      "name": "get_tables"
+    },
+    "id": "2"
+  }'
+```
+
+3. **Test edge cases:**
+
+```bash
+# Test with invalid databases
+# Test with large result sets
+# Test with complex queries
+# Test error handling
+# Test concurrent connections
+```
+
+## Types of Contributions
+
+### 1. New MCP Tools
+
+Add new tools in `tools.py`:
+
+```python
+def handle_new_tool(self, arguments: dict) -> dict:
+    """
+    Handle a new MCP tool request.
+    
+    Args:
+        arguments: Tool arguments from MCP request
+        
+    Returns:
+        Tool execution results
+    """
+    try:
+        # Validate arguments
+        required_args = ['param1', 'param2']
+        for arg in required_args:
+            if arg not in arguments:
+                raise ValueError(f"Missing required argument: {arg}")
+        
+        # Implement tool logic
+        result = self._execute_new_functionality(arguments)
+        
+        return {
+            "content": [{
+                "type": "text",
+                "text": f"Tool executed successfully: {result}"
+            }]
+        }
+        
+    except Exception as e:
+        self.logger.error(f"New tool error: {e}")
+        raise MCPError(f"Tool execution failed: {e}")
+```
+
+Don't forget to register the tool:
+
+```python
+# In tools.py, add to AVAILABLE_TOOLS
+AVAILABLE_TOOLS = {
+    # ...existing tools...
+    "new_tool": {
+        "name": "new_tool",
+        "description": "Description of what the new tool does",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "param1": {"type": "string", "description": "First parameter"},
+                "param2": {"type": "string", "description": "Second parameter"}
+            },
+            "required": ["param1", "param2"]
+        }
+    }
+}
+```
+
+### 2. Bug Fixes
+
+1. **Identify the issue:**
+   - Reproduce the bug
+   - Check logs for error messages
+   - Identify the affected module
+
+2. **Fix the issue:**
+   - Make minimal changes
+   - Preserve existing functionality
+   - Add error handling if needed
+
+3. **Test the fix:**
+   - Verify the bug is resolved
+   - Ensure no regressions
+   - Test edge cases
+
+### 3. Documentation Improvements
+
+- Update wiki pages for new features
+- Add examples for new tools
+- Improve existing documentation clarity
+- Fix typos and formatting issues
+
+### 4. Performance Improvements
+
+Focus areas for optimization:
+- Database query performance
+- Memory usage optimization
+- Connection handling efficiency
+- Error handling improvements
+
+## Testing Guidelines
+
+### Manual Testing Checklist
+
+Before submitting:
+
+- [ ] Server starts without errors
+- [ ] Health endpoint responds correctly
+- [ ] All existing tools work properly
+- [ ] New functionality works as expected
+- [ ] Error handling works correctly
+- [ ] Graceful shutdown works (Ctrl+C)
+- [ ] Log messages are appropriate
+- [ ] No memory leaks in long-running tests
+
+### Integration Testing
+
+```bash
+# Test complete workflow
+python3 main.py --log-level DEBUG &
+SERVER_PID=$!
+
+# Run test suite
+./run_integration_tests.sh
+
+# Clean up
+kill $SERVER_PID
+```
+
+### Load Testing
+
+For performance changes:
+
+```bash
+# Simple load test
+for i in {1..100}; do
+  curl -s http://localhost:9999/health > /dev/null &
+done
+wait
+
+# Monitor resource usage
+htop
+```
+
+## Submission Process
+
+### 1. Prepare Your Changes
+
+```bash
+# Ensure your branch is up to date
+git fetch upstream
+git rebase upstream/main
+
+# Review your changes
+git diff upstream/main
+
+# Stage your changes
+git add .
+git commit -m "feat: Add new MCP tool for database analysis
+
+- Implement table statistics tool
+- Add comprehensive error handling
+- Update documentation with examples
+- Add input validation for all parameters"
+```
+
+### 2. Commit Message Format
+
+Use conventional commits:
+
+```
+type(scope): short description
+
+Longer description if needed.
+
+- List of changes
+- Important notes
+- Breaking changes (if any)
+
+Closes #issue-number
+```
+
+Types:
+- `feat:` New features
+- `fix:` Bug fixes
+- `docs:` Documentation changes
+- `refactor:` Code refactoring
+- `perf:` Performance improvements
+- `test:` Test additions/changes
+- `chore:` Maintenance tasks
+
+### 3. Create Pull Request
+
+```bash
+# Push your branch
+git push origin feature/your-feature-name
+
+# Create pull request on GitHub
+# Include:
+# - Clear description of changes
+# - Screenshots if UI-related
+# - Testing performed
+# - Any breaking changes
+```
+
+### Pull Request Template
+
+```markdown
+## Description
+Brief description of what this PR does.
+
+## Type of Change
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Documentation update
+- [ ] Performance improvement
+- [ ] Code refactoring
+
+## Testing
+- [ ] Tested manually
+- [ ] All existing functionality still works
+- [ ] Added appropriate error handling
+- [ ] Updated documentation
+
+## Changes Made
+- List specific changes
+- Include any new dependencies
+- Note any configuration changes
+
+## Screenshots (if applicable)
+Include screenshots for UI changes.
+
+## Additional Notes
+Any additional information for reviewers.
+```
+
+## Code Review Process
+
+### What We Look For
+
+1. **Functionality:**
+   - Code works as intended
+   - Handles edge cases properly
+   - Follows security best practices
+
+2. **Code Quality:**
+   - Readable and maintainable
+   - Follows project conventions
+   - Appropriate error handling
+   - Good performance characteristics
+
+3. **Documentation:**
+   - Code is well-documented
+   - User-facing changes include documentation updates
+   - Examples are provided for new features
+
+### Review Checklist
+
+For reviewers:
+
+- [ ] Code compiles and runs without errors
+- [ ] All tests pass
+- [ ] Code follows project style guidelines
+- [ ] Security implications considered
+- [ ] Performance impact assessed
+- [ ] Documentation is complete and accurate
+- [ ] Breaking changes are clearly marked
+
+## Recognition
+
+Contributors will be:
+- Listed in project contributors
+- Credited in release notes
+- Invited to participate in project decisions
+
+## Getting Help
+
+### Communication Channels
+
+- **GitHub Issues:** For bug reports and feature requests
+- **GitHub Discussions:** For general questions and ideas
+- **Email:** info@iven.in for private matters
+
+### Questions Before Contributing
+
+Common questions:
+
+**Q: What should I work on?**
+A: Check the issues page for "good first issue" or "help wanted" labels.
+
+**Q: How do I test my changes?**
+A: Follow the testing guidelines above and ensure all existing functionality still works.
+
+**Q: Can I add external dependencies?**
+A: We prefer to keep the project dependency-free (Python stdlib only). Discuss any dependencies in an issue first.
+
+**Q: How do I add a new MCP tool?**
+A: See the "New MCP Tools" section above for detailed steps.
+
+## Code of Conduct
+
+We are committed to providing a welcoming and inclusive environment:
+
+- Be respectful and constructive
+- Focus on the technical aspects
+- Help others learn and grow
+- Report any inappropriate behavior
+
+## Roadmap
+
+Areas where contributions are especially welcome:
+
+1. **New MCP Tools:**
+   - Database schema comparison
+   - Query performance analysis
+   - Data visualization helpers
+   - Backup and restore utilities
+
+2. **Performance Improvements:**
+   - Connection pooling
+   - Query caching
+   - Memory optimization
+   - Async operations
+
+3. **Security Enhancements:**
+   - Authentication mechanisms
+   - Rate limiting
+   - Audit logging
+   - Access controls
+
+4. **Integration Features:**
+   - Additional VS Code features
+   - CI/CD pipeline examples
+   - Docker deployment
+   - Kubernetes manifests
+
+---
+
+**Thank you for contributing!** Your efforts help make this project better for everyone.

@@ -1,0 +1,453 @@
+# Troubleshooting
+
+This guide helps resolve common issues with the SQLite MCP Server.
+
+## Quick Diagnostics
+
+### Server Health Check
+
+Start with basic connectivity tests:
+
+```bash
+# Test server response
+curl http://localhost:9999/health
+
+# Expected response:
+# {"status": "healthy", "timestamp": "...", "version": "1.0.0"}
+
+# Test MCP protocol (requires initialization first)
+# 1. Initialize the connection
+curl -X POST http://localhost:9999/ \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "method": "initialize", "params": {"protocolVersion": "2025-03-26", "clientInfo": {"name": "test-client", "version": "1.0.0"}}, "id": "1"}'
+
+# 2. List available tools
+curl -X POST http://localhost:9999/ \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "method": "tools/list", "id": "2"}'
+```
+
+### Process Check
+
+Verify the server process is running:
+
+```bash
+# Check if server is running
+ps aux | grep main.py
+
+# Check port binding
+ss -tulpn | grep :9999
+
+# Check system service (if deployed)
+sudo systemctl status sqlite-mcp-server
+```
+
+## Common Issues
+
+### 1. Server Won't Start
+
+**Symptoms:**
+- Connection refused errors
+- No response to health checks
+- Process not found
+
+**Diagnostic Steps:**
+
+```bash
+# Check if port is already in use
+lsof -i :9999
+# or
+ss -tulpn | grep :9999
+
+# Check Python version
+python3 --version
+
+# Try starting manually with debug logging
+python3 main.py --log-level DEBUG
+
+# Check for permission issues
+ls -la /home/ds/Desktop/sqlite_mcp_server/
+```
+
+**Solutions:**
+
+```bash
+# Kill process using the port
+sudo kill -9 $(lsof -t -i:9999)
+
+# Start on different port
+python3 main.py --port 10000
+
+# Fix permissions
+chmod +x start_server.sh
+chmod 644 *.py
+
+# Install missing Python modules (if any)
+pip3 install -r requirements.txt
+```
+
+### 2. Server Starts But Crashes
+
+**Symptoms:**
+- Server starts then immediately stops
+- Error messages in logs
+- Process exits unexpectedly
+
+**Diagnostic Steps:**
+
+```bash
+# Run with verbose logging
+python3 main.py --log-level DEBUG
+
+# Check system logs
+sudo journalctl -u sqlite-mcp-server -n 50
+
+# Check application logs
+tail -f logs/mcp_server_*.log
+
+# Test with minimal configuration
+python3 main.py --host localhost --port 9999
+```
+
+**Common Causes & Solutions:**
+
+```bash
+# Memory issues - reduce limits
+python3 main.py --max-result-rows 1000 --max-connections 5
+
+# Invalid configuration - reset to defaults
+python3 main.py  # Uses all default values
+
+# File permission errors
+sudo chown -R $USER:$USER /home/ds/Desktop/sqlite_mcp_server/
+```
+
+### 3. Database Connection Errors
+
+**Symptoms:**
+- "Database not found" errors
+- SQLite locking errors
+- Permission denied accessing database files
+
+**Diagnostic Steps:**
+
+```bash
+# Test database file directly
+sqlite3 /path/to/database.db ".tables"
+
+# Check file permissions
+ls -la /path/to/database.db
+
+# Check if database is locked
+lsof /path/to/database.db
+
+# Test with a simple database
+sqlite3 test.db "CREATE TABLE test (id INTEGER); INSERT INTO test VALUES (1); SELECT * FROM test;"
+```
+
+**Solutions:**
+
+```bash
+# Fix database permissions
+chmod 644 /path/to/database.db
+chmod 755 /path/to/directory/
+
+# Unlock database (if locked)
+fuser -k /path/to/database.db
+
+# Create test database
+sqlite3 example.db "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);"
+
+# Use absolute paths in requests
+curl -X POST http://localhost:9999/ \
+  -d '{"jsonrpc": "2.0", "method": "tools/call", "params": {"name": "get_tables", "arguments": {"db_path": "/full/path/to/database.db"}}, "id": "1"}'
+```
+
+### 4. Signal Handling Issues (Ctrl+C)
+
+**Symptoms:**
+- Server doesn't stop with Ctrl+C
+- Process remains running after interrupt
+- Need to force kill process
+
+**Diagnostic Steps:**
+
+```bash
+# Check if process responds to signals
+ps aux | grep main.py
+kill -TERM <PID>
+
+# Check for zombie processes
+ps auxZ | grep main.py
+```
+
+**Solutions:**
+
+```bash
+# Force kill if necessary
+pkill -f main.py
+# or
+sudo killall -9 python3
+
+# Use the updated main.py with proper signal handling
+# (This should already be implemented in the modular version)
+
+# Restart the server
+python3 main.py
+```
+
+### 5. High Memory Usage
+
+**Symptoms:**
+- Server uses excessive memory
+- System becomes slow
+- Out of memory errors
+
+**Diagnostic Steps:**
+
+```bash
+# Monitor memory usage
+htop
+# or
+ps aux --sort=-%mem | head -10
+
+# Check specific process memory
+ps -p $(pgrep -f main.py) -o pid,ppid,cmd,%mem,%cpu
+
+# Monitor over time
+watch "ps aux | grep main.py"
+```
+
+**Solutions:**
+
+```bash
+# Reduce result limits
+python3 main.py --max-result-rows 5000
+
+# Reduce connection limits
+python3 main.py --max-connections 5
+
+# Add memory limits to systemd service
+sudo systemctl edit sqlite-mcp-server
+# Add: MemoryLimit=512M
+```
+
+### 6. Performance Issues
+
+**Symptoms:**
+- Slow query responses
+- Timeouts
+- High CPU usage
+
+**Diagnostic Steps:**
+
+```bash
+# Test query performance
+time curl -X POST http://localhost:9999/ \
+  -d '{"jsonrpc": "2.0", "method": "tools/call", "params": {"name": "query", "arguments": {"sql": "SELECT COUNT(*) FROM table_name", "db_path": "test.db"}}, "id": "1"}'
+
+# Monitor CPU usage
+top -p $(pgrep -f main.py)
+
+# Check database performance
+sqlite3 database.db "EXPLAIN QUERY PLAN SELECT * FROM large_table;"
+```
+
+**Solutions:**
+
+```bash
+# Increase query timeout
+python3 main.py --max-query-time 120
+
+# Optimize database queries
+sqlite3 database.db "CREATE INDEX idx_column ON table_name(column);"
+
+# Reduce concurrent connections
+python3 main.py --max-connections 3
+
+# Use VACUUM to optimize database
+sqlite3 database.db "VACUUM;"
+```
+
+## Debugging Tools
+
+### Enable Debug Logging
+
+```bash
+# Start with maximum logging
+python3 main.py --log-level DEBUG
+
+# Monitor logs in real-time
+tail -f logs/mcp_server_*.log
+
+# Search for specific errors
+grep -i error logs/mcp_server_*.log
+grep -i "connection" logs/mcp_server_*.log
+```
+
+### Network Debugging
+
+```bash
+# Check network connectivity
+curl -v http://localhost:9999/health
+
+# Monitor network traffic
+sudo tcpdump -i lo port 9999
+
+# Test from remote machine
+curl http://your-server-ip:9999/health
+```
+
+### Database Debugging
+
+```bash
+# Test SQLite directly
+sqlite3 database.db
+.tables
+.schema table_name
+SELECT COUNT(*) FROM table_name;
+
+# Check database integrity
+sqlite3 database.db "PRAGMA integrity_check;"
+
+# Analyze database
+sqlite3 database.db "PRAGMA table_info(table_name);"
+```
+
+## 📝 Log Analysis
+
+### Understanding Log Messages
+
+Common log patterns and their meanings:
+
+```
+# Normal startup
+INFO - Server started on http://localhost:9999
+
+# Successful request
+INFO - Executing query: SELECT * FROM users
+INFO - Query completed in 0.003s, returned 25 rows
+
+# Connection issues
+ERROR - Database connection failed: /path/to/db.db
+WARNING - Connection timeout after 60 seconds
+
+# High load
+WARNING - Maximum connections reached (10)
+WARNING - Query timeout: SELECT * FROM large_table
+```
+
+### Log File Locations
+
+```bash
+# Application logs
+logs/mcp_server_YYYYMMDD.log
+
+# System logs (if deployed as service)
+sudo journalctl -u sqlite-mcp-server
+
+# System error logs
+/var/log/syslog
+/var/log/messages
+```
+
+## Recovery Procedures
+
+### Graceful Recovery
+
+For minor issues:
+
+```bash
+# Restart server gracefully
+pkill -TERM -f main.py
+python3 main.py
+
+# Clear temporary files
+rm -f /tmp/sqlite-*
+```
+
+### Force Recovery
+
+For severe issues:
+
+```bash
+# Force kill all related processes
+sudo pkill -9 -f main.py
+sudo pkill -9 -f sqlite
+
+# Clean up lock files
+rm -f *.db-shm *.db-wal
+
+# Restart with clean state
+python3 main.py --log-level INFO
+```
+
+### Database Recovery
+
+For database corruption:
+
+```bash
+# Backup corrupted database
+cp database.db database.db.corrupted
+
+# Try to repair
+sqlite3 database.db "PRAGMA integrity_check;"
+
+# If needed, dump and restore
+sqlite3 database.db ".dump" > backup.sql
+rm database.db
+sqlite3 database.db ".read backup.sql"
+```
+
+## Getting Help
+
+### Support Resources
+
+1. **Check documentation:** [Wiki](../wiki/)
+2. **Review logs:** Enable debug logging for detailed information
+3. **Check this troubleshooting guide** for common solutions
+
+### Reporting Issues
+
+When reporting issues, include:
+
+```bash
+# System information
+python3 --version
+uname -a
+
+# Server logs
+tail -50 logs/mcp_server_*.log
+
+# Error reproduction steps
+curl -X POST http://localhost:9999/ -d '...'
+
+# Configuration used
+python3 main.py --help  # Show your command line options
+```
+
+## Prevention Checklist
+
+Prevent common issues:
+
+- [ ] Regular log monitoring
+- [ ] Database maintenance (VACUUM, integrity checks)
+- [ ] Resource monitoring (memory, CPU, disk)
+- [ ] Backup procedures in place
+- [ ] Health check automation
+- [ ] Update documentation after changes
+- [ ] Test after configuration changes
+- [ ] Monitor file permissions
+- [ ] Regular security updates
+- [ ] Performance baseline established
+
+## 🔗 Related Resources
+
+- **[Production Deployment](Production-Deployment)** - Service management
+- **[Configuration](Configuration)** - Server configuration options
+- **[API Reference](API-Reference)** - API documentation for testing
+- **[Examples](Examples)** - Working code examples
+
+---
+
+**Need more help?** Check the documentation links above or review the configuration and examples for additional guidance.

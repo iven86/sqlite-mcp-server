@@ -1,0 +1,544 @@
+# API Reference
+
+Complete reference for SQLite MCP Server API endpoints and MCP tools.
+
+## HTTP Endpoints
+
+### Health Check
+
+**GET /health**
+
+Returns server status and basic information.
+
+**Response:**
+```json
+{
+  "success": true,
+  "status": "healthy",
+  "timestamp": "2025-06-06T...",
+  "current_database": null,
+  "initialized": true,
+  "stats": {
+    "total_requests": 150,
+    "successful_requests": 145,
+    "failed_requests": 5
+  }
+}
+```
+
+### Status Page
+
+**GET /**
+
+Returns an HTML status page with server information and available endpoints.
+
+### MCP Endpoint
+
+**POST /**
+
+Main Model Context Protocol JSON-RPC endpoint for all MCP operations.
+
+**Content-Type:** `application/json`
+
+## MCP Protocol Methods
+
+### initialize
+
+Initialize the MCP connection.
+
+**Request:**
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2025-03-26",
+    "capabilities": {},
+    "clientInfo": {
+      "name": "client-name",
+      "version": "1.0.0"
+    }
+  },
+  "id": "1"
+}
+```
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "protocolVersion": "2025-03-26",
+    "capabilities": {
+      "tools": {}
+    },
+    "serverInfo": {
+      "name": "sqlite-mcp-server",
+      "version": "1.0.0"
+    }
+  },
+  "id": "1"
+}
+```
+
+### tools/list
+
+List all available MCP tools.
+
+**Request:**
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/list",
+  "params": {},
+  "id": "2"
+}
+```
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "tools": [
+      {
+        "name": "connect_database",
+        "description": "Connect to a SQLite database",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "db_path": {
+              "type": "string",
+              "description": "Path to SQLite database file"
+            }
+          },
+          "required": ["db_path"]
+        }
+      }
+      // ... other tools
+    ]
+  },
+  "id": "2"
+}
+```
+
+### tools/call
+
+Execute a specific MCP tool.
+
+**Note:** The server must be initialized using the `initialize` method before any tools can be called.
+
+**Request:**
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "tool_name",
+    "arguments": {
+      "param1": "value1",
+      "param2": "value2"
+    }
+  },
+  "id": "3"
+}
+```
+
+## Available MCP Tools
+
+### connect_database
+
+Connect to a SQLite database file.
+
+**Parameters:**
+- `db_path` (string, required): Path to SQLite database file
+
+**Example:**
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "connect_database",
+    "arguments": {
+      "db_path": "./data/sample.db"
+    }
+  },
+  "id": "1"
+}
+```
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "success": true,
+    "message": "Connected to database: ./data/sample.db",
+    "database_path": "./data/sample.db"
+  },
+  "id": "1"
+}
+```
+
+### query
+
+Execute SQL SELECT statements.
+
+**Parameters:**
+- `sql` (string, required): SQL SELECT query
+- `params` (array, optional): Parameters for prepared statements
+- `db_path` (string, optional): Database path (uses current if not specified)
+
+**Example:**
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "query",
+    "arguments": {
+      "sql": "SELECT * FROM users WHERE age > ? LIMIT 10",
+      "params": [25]
+    }
+  },
+  "id": "2"
+}
+```
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "success": true,
+    "data": [
+      {"id": 1, "name": "John", "age": 30, "email": "john@example.com"},
+      {"id": 2, "name": "Jane", "age": 28, "email": "jane@example.com"}
+    ],
+    "row_count": 2,
+    "execution_time": "0.003s"
+  },
+  "id": "2"
+}
+```
+
+### get_tables
+
+List all tables in the database.
+
+**Parameters:**
+- `db_path` (string, optional): Database path (uses current if not specified)
+
+**Example:**
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "get_tables",
+    "arguments": {}
+  },
+  "id": "3"
+}
+```
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "success": true,
+    "tables": [
+      {"name": "users", "type": "table"},
+      {"name": "orders", "type": "table"},
+      {"name": "products", "type": "table"}
+    ],
+    "count": 3
+  },
+  "id": "3"
+}
+```
+
+### get_schema
+
+Get detailed schema information for a table.
+
+**Parameters:**
+- `table` (string, required): Table name
+- `db_path` (string, optional): Database path (uses current if not specified)
+
+**Example:**
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "get_schema",
+    "arguments": {
+      "table": "users"
+    }
+  },
+  "id": "4"
+}
+```
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "success": true,
+    "table": "users",
+    "columns": [
+      {"name": "id", "type": "INTEGER", "primary_key": true, "not_null": true},
+      {"name": "name", "type": "TEXT", "primary_key": false, "not_null": true},
+      {"name": "email", "type": "TEXT", "primary_key": false, "not_null": false}
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {"name": "idx_users_email", "columns": ["email"], "unique": true}
+    ]
+  },
+  "id": "4"
+}
+```
+
+### create
+
+Insert a new record into a table.
+
+**Parameters:**
+- `table` (string, required): Table name
+- `data` (object, required): Data to insert (column: value pairs)
+- `db_path` (string, optional): Database path (uses current if not specified)
+
+**Example:**
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "create",
+    "arguments": {
+      "table": "users",
+      "data": {
+        "name": "Alice Smith",
+        "email": "alice@example.com",
+        "age": 25
+      }
+    }
+  },
+  "id": "5"
+}
+```
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "success": true,
+    "inserted_id": 123,
+    "affected_rows": 1,
+    "table": "users",
+    "data": {
+      "name": "Alice Smith",
+      "email": "alice@example.com", 
+      "age": 25
+    }
+  },
+  "id": "5"
+}
+```
+
+### read
+
+Read records from a table with optional filtering.
+
+**Parameters:**
+- `table` (string, required): Table name
+- `where` (object, optional): WHERE conditions (column: value pairs)
+- `limit` (integer, optional): Maximum number of records to return
+- `offset` (integer, optional): Number of records to skip
+- `order_by` (string, optional): ORDER BY clause
+- `db_path` (string, optional): Database path (uses current if not specified)
+
+**Example:**
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "read",
+    "arguments": {
+      "table": "users",
+      "where": {"age": 25},
+      "limit": 10,
+      "order_by": "name ASC"
+    }
+  },
+  "id": "6"
+}
+```
+
+### update
+
+Update records in a table.
+
+**Parameters:**
+- `table` (string, required): Table name
+- `data` (object, required): Data to update (column: value pairs)
+- `where` (object, required): WHERE conditions (column: value pairs)
+- `db_path` (string, optional): Database path (uses current if not specified)
+
+**Example:**
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "update",
+    "arguments": {
+      "table": "users",
+      "data": {"age": 26},
+      "where": {"id": 123}
+    }
+  },
+  "id": "7"
+}
+```
+
+### delete
+
+Delete records from a table.
+
+**Parameters:**
+- `table` (string, required): Table name
+- `where` (object, required): WHERE conditions (column: value pairs)
+- `db_path` (string, optional): Database path (uses current if not specified)
+
+**Example:**
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "delete",
+    "arguments": {
+      "table": "users",
+      "where": {"id": 123}
+    }
+  },
+  "id": "8"
+}
+```
+
+### analyze_table
+
+Get table statistics and sample data.
+
+**Parameters:**
+- `table` (string, required): Table name
+- `db_path` (string, optional): Database path (uses current if not specified)
+
+**Example:**
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "analyze_table",
+    "arguments": {
+      "table": "users"
+    }
+  },
+  "id": "9"
+}
+```
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "success": true,
+    "table": "users",
+    "row_count": 1500,
+    "columns": [
+      {"name": "id", "type": "INTEGER"},
+      {"name": "name", "type": "TEXT"},
+      {"name": "age", "type": "INTEGER"}
+    ],
+    "sample_data": [
+      {"id": 1, "name": "John", "age": 30},
+      {"id": 2, "name": "Jane", "age": 28}
+    ],
+    "column_statistics": {
+      "age": {"min": 18, "max": 85, "avg": 34.5}
+    }
+  },
+  "id": "9"
+}
+```
+
+### search_data
+
+Search for data across multiple tables.
+
+**Parameters:**
+- `search_term` (string, required): Text to search for
+- `tables` (array, optional): Specific tables to search (searches all if not specified)
+- `db_path` (string, optional): Database path (uses current if not specified)
+
+**Example:**
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "search_data",
+    "arguments": {
+      "search_term": "john",
+      "tables": ["users", "customers"]
+    }
+  },
+  "id": "10"
+}
+```
+
+## Error Responses
+
+All API endpoints return standardized error responses:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "error": {
+    "code": -32603,
+    "message": "Query execution failed: no such table: invalid_table"
+  },
+  "id": "1"
+}
+```
+
+### Common Error Codes
+
+- `-32700`: Parse error (invalid JSON)
+- `-32600`: Invalid request (malformed JSON-RPC)
+- `-32601`: Method not found
+- `-32602`: Invalid params (missing required parameters)
+- `-32603`: Internal error (database errors, etc.)
+
+## Rate Limiting
+
+The server implements basic rate limiting:
+- Maximum concurrent connections: Configurable (default: 10)
+- Maximum query execution time: Configurable (default: 60s)
+- Maximum result rows: Configurable (default: 10,000)
+
+## Next Steps
+
+- [💡 Examples](Examples) - See practical usage examples
+- [Configuration](Configuration) - Learn about configuration options
+- [Troubleshooting](Troubleshooting) - Solve common issues
