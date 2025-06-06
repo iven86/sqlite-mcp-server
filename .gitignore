@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Wiki repository
+sqlite-mcp-server.wiki/
+
 # C extensions
 *.so
 

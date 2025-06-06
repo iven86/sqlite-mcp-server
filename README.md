@@ -122,13 +122,15 @@ sqlite_mcp_server/
 
 ## Documentation
 
-- **[Getting Started](wiki/Getting-Started)** - Installation and setup guide
-- **[Configuration](wiki/Configuration)** - Configuration reference
-- **[API Reference](wiki/API-Reference)** - API documentation and MCP tools
-- **[Examples](wiki/Examples)** - Usage examples and code samples
-- **[System Deployment](wiki/Production-Deployment)** - Service setup and management
-- **[Troubleshooting](wiki/Troubleshooting)** - Common issues and solutions
-- **[Contributing](wiki/Contributing)** - Development guide
+- **[Getting Started](https://github.com/iven86/sqlite-mcp-server/wiki/Getting-Started)** - Installation and setup guide
+- **[Configuration](https://github.com/iven86/sqlite-mcp-server/wiki/Configuration)** - Configuration reference
+- **[API Reference](https://github.com/iven86/sqlite-mcp-server/wiki/API-Reference)** - API documentation and MCP tools
+- **[Examples](https://github.com/iven86/sqlite-mcp-server/wiki/Examples)** - Usage examples and code samples
+- **[System Deployment](https://github.com/iven86/sqlite-mcp-server/wiki/Production-Deployment)** - Service setup and management
+- **[Troubleshooting](https://github.com/iven86/sqlite-mcp-server/wiki/Troubleshooting)** - Common issues and solutions
+- **[Contributing](https://github.com/iven86/sqlite-mcp-server/wiki/Contributing)** - Development guide
+
+Visit our complete [Wiki Documentation](https://github.com/iven86/sqlite-mcp-server/wiki) for more information.
 
 ## System Deployment
 
@@ -152,7 +154,7 @@ sudo systemctl status sqlite-mcp-server
 
 ## Contributing
 
-See the [Contributing Guide](wiki/Contributing) for development setup, code standards, testing requirements, and pull request process.
+See the [Contributing Guide](https://github.com/iven86/sqlite-mcp-server/wiki/Contributing) for development setup, code standards, testing requirements, and pull request process.
 
 ## License
 
@@ -160,12 +162,12 @@ This project is licensed under the Creative Commons Attribution-NonCommercial-Sh
 
 ## Links
 
-- **[Wiki Documentation](wiki/)** - Complete project documentation
+- **[GitHub Wiki](https://github.com/iven86/sqlite-mcp-server/wiki)** - Complete project documentation
 - **[MCP Protocol Specification](https://spec.modelcontextprotocol.io/)** - Model Context Protocol details
 
 ---
 
-For help, check the [Troubleshooting Guide](wiki/Troubleshooting).
+For help, check the [Troubleshooting Guide](https://github.com/iven86/sqlite-mcp-server/wiki/Troubleshooting).
 
 ---
 
